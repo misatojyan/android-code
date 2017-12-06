@@ -2,6 +2,11 @@
 // Created by yuki on 17-11-1.
 //
 
+#include <assert.h>
+
+#include <iostream>
+#include <memory>
+
 #include <EGL/egl.h>
 
 #include "log.h"
@@ -23,6 +28,59 @@ EGLint width = 0;
 EGLint height = 0;
 EGLint format = 0;
 
+#define PE(function) printError(__FILE__, __LINE__, #function)
+
+static void printError(const char *file, const int line, const char *function)
+{
+    EGLint errorCode = eglGetError();
+    char *msg = "";
+    switch (errorCode) {
+    case EGL_BAD_DISPLAY:
+        msg = "EGL_BAD_DISPLAY";
+        break;
+    case EGL_NOT_INITIALIZED:
+        msg = "EGL_NOT_INITIALIZED";
+        break;
+    case EGL_BAD_CONFIG:
+        msg = "EGL_BAD_CONFIG";
+        break;
+    case EGL_BAD_NATIVE_WINDOW:
+        msg = "EGL_BAD_NATIVE_WINDOW";
+        break;
+    case EGL_BAD_ATTRIBUTE:
+        msg = "EGL_BAD_ATTRIBUTE";
+        break;
+    case EGL_BAD_ALLOC:
+        msg = "EGL_BAD_ALLOC";
+        break;
+    case EGL_BAD_MATCH:
+        msg = "EGL_BAD_MATCH";
+        break;
+    case EGL_BAD_CONTEXT:
+        msg = "EGL_BAD_CONTEXT";
+        break;
+    case EGL_BAD_SURFACE:
+        msg = "EGL_BAD_SURFACE";
+        break;
+    case EGL_BAD_ACCESS:
+        msg = "EGL_BAD_ACCESS";
+        break;
+    case EGL_BAD_NATIVE_PIXMAP:
+        msg = "EGL_BAD_NATIVE_PIXMAP";
+        break;
+    case EGL_BAD_CURRENT_SURFACE:
+        msg = "EGL_BAD_CURRENT_SURFACE";
+        break;
+    case EGL_CONTEXT_LOST:
+        msg = "EGL_CONTEXT_LOST";
+        break;
+    default:
+        msg = "unknown";
+        break;
+    }
+    LOGE(TAG, "%s@<%d@%s> failed: %#x, %s", function, line, file, errorCode, msg);
+}
+
 EGLBoolean initEGL(ANativeWindow *window)
 {
     if (NULL == window) {
@@ -33,7 +91,7 @@ EGLBoolean initEGL(ANativeWindow *window)
     // Get default display connection
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (EGL_NO_DISPLAY == display) {
-        LOGE(TAG, "eglGetDisplay failed, error code: %#x", eglGetError());
+        LOGE(TAG, "eglGetDisplay failed");
         return EGL_FALSE;
     }
 
@@ -41,51 +99,29 @@ EGLBoolean initEGL(ANativeWindow *window)
     EGLint majorVer, minorVer;
     EGLBoolean status = eglInitialize(display, &majorVer, &minorVer);
     if (EGL_TRUE != status) {
-        EGLint errorCode = eglGetError();
-        char *msg = "";
-        switch (errorCode) {
-        case EGL_BAD_DISPLAY:
-            msg = "EGL_BAD_DISPLAY";
-            break;
-        case EGL_NOT_INITIALIZED:
-            msg = "EGL_NOT_INITIALIZED";
-            break;
-        default:
-            msg = "unknown";
-            break;
-        }
-        LOGE(TAG, "eglInitialize failed: %#x, %s", errorCode, msg);
-
+        PE(eglInitialize);
         return EGL_FALSE;
     }
     LOGE(TAG, "majorVer: %d, minorVer: %d", majorVer, minorVer);
 
-    // find out how many configurations are supported
-    /*
-     * no code here
-     */
 
     // Get a list of EGL frame buffer configurations that match specified attributes
     const EGLint attribs[] = {
             EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-            EGL_BLUE_SIZE, 5,
-            EGL_GREEN_SIZE, 6,
-            EGL_RED_SIZE, 5,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+            EGL_BLUE_SIZE, 8,
+            EGL_GREEN_SIZE, 8,
+            EGL_RED_SIZE, 8,
             EGL_NONE
     };
     EGLint numConfigs;
     EGLConfig config;
-    status = eglChooseConfig(display, attribs, &config, 1, &numConfigs);
-    if (EGL_TRUE != status || !numConfigs) {
-        LOGE(TAG, "eglChooseConfig failed, error code: %#x", eglGetError());
-        return EGL_FALSE;
-    }
-
-    /* Here, the application chooses the configuration it desires.
+    /**
+     * Here, the application chooses the configuration it desires.
      * find the best match if possible, otherwise use the very first one
      */
-    eglChooseConfig(display, attribs, nullptr,0, &numConfigs);
-   /* std::unique_ptr<EGLConfig[]> supportedConfigs(new EGLConfig[numConfigs]);
+    status = eglChooseConfig(display, attribs, nullptr, 0, &numConfigs);
+    std::unique_ptr<EGLConfig[]> supportedConfigs(new EGLConfig[numConfigs]);
     assert(supportedConfigs);
     eglChooseConfig(display, attribs, supportedConfigs.get(), numConfigs, &numConfigs);
     assert(numConfigs);
@@ -105,42 +141,21 @@ EGLBoolean initEGL(ANativeWindow *window)
     }
     if (i == numConfigs) {
         config = supportedConfigs[0];
+    }
+
+    /*if (EGL_TRUE != status || !numConfigs) {
+        LOGE(TAG, "eglChooseConfig failed, error code: %#x", eglGetError());
+        return EGL_FALSE;
     }*/
 
     // Create a new EGL window surface
     surface = eglCreateWindowSurface(display, config, window, NULL);
     if (EGL_NO_SURFACE == surface) {
-        EGLint errorCode = eglGetError();
-        char *msg = "";
-        switch (errorCode) {
-        case EGL_BAD_DISPLAY:
-            msg = "EGL_BAD_DISPLAY";
-            break;
-        case EGL_NOT_INITIALIZED:
-            msg = "EGL_NOT_INITIALIZED";
-            break;
-        case EGL_BAD_CONFIG:
-            msg = "EGL_BAD_CONFIG";
-            break;
-        case EGL_BAD_NATIVE_WINDOW:
-            msg = "EGL_BAD_NATIVE_WINDOW";
-            break;
-        case EGL_BAD_ATTRIBUTE:
-            msg = "EGL_BAD_ATTRIBUTE";
-            break;
-        case EGL_BAD_ALLOC:
-            msg = "EGL_BAD_ALLOC";
-            break;
-        case EGL_BAD_MATCH:
-            msg = "EGL_BAD_MATCH)";
-            break;
-        default:
-            msg = "unknown";
-            break;
-        }
-        LOGE(TAG, "eglCreateWindowSurface failed: %#x, %s", errorCode, msg);
+        PE(eglCreateWindowSurface);
         return EGL_FALSE;
     }
+
+    eglBindAPI(EGL_OPENGL_ES_API);
 
     // Create a new EGL rendering context
     const EGLint attrs[] = {
@@ -148,85 +163,15 @@ EGLBoolean initEGL(ANativeWindow *window)
             EGL_NONE
     };
     context = eglCreateContext(display, config, EGL_NO_CONTEXT, attrs);
-    // context = eglCreateContext(display, config, NULL, NULL);
     if (EGL_NO_CONTEXT == context) {
-        EGLint errorCode = eglGetError();
-        char *msg = "";
-        switch (errorCode) {
-        case EGL_BAD_MATCH:
-            msg = "EGL_BAD_MATCH";
-            break;
-        case EGL_BAD_DISPLAY:
-            msg = "EGL_BAD_DISPLAY";
-            break;
-        case EGL_NOT_INITIALIZED:
-            msg = "EGL_NOT_INITIALIZED";
-            break;
-        case EGL_BAD_CONFIG:
-            msg = "EGL_BAD_CONFIG";
-            break;
-        case EGL_BAD_CONTEXT:
-            msg = "EGL_BAD_CONTEXT";
-            break;
-        case EGL_BAD_ATTRIBUTE:
-            msg = "EGL_BAD_ATTRIBUTE";
-            break;
-        case EGL_BAD_ALLOC:
-            msg = "EGL_BAD_ALLOC";
-            break;
-        default:
-            msg = "unknown";
-            break;
-        }
-        LOGE(TAG, "eglCreateContext failed: %#x, %s", errorCode, msg);
+        PE(eglCreateContext);
         return EGL_FALSE;
     }
 
     // Attach an EGL rendering context to EGL surfaces
     status = eglMakeCurrent(display, surface, surface, context);
     if (EGL_TRUE != status) {
-        EGLint errorCode = eglGetError();
-        char *msg = "";
-        switch (errorCode) {
-        case EGL_BAD_DISPLAY:
-            msg = "EGL_BAD_DISPLAY";
-            break;
-        case EGL_NOT_INITIALIZED:
-            msg = "EGL_NOT_INITIALIZED";
-            break;
-        case EGL_BAD_SURFACE:
-            msg = "EGL_BAD_SURFACE";
-            break;
-        case EGL_BAD_CONTEXT:
-            msg = "EGL_BAD_CONTEXT";
-            break;
-        case EGL_BAD_MATCH:
-            msg = "EGL_BAD_MATCH";
-            break;
-        case EGL_BAD_ACCESS:
-            msg = "EGL_BAD_ACCESS";
-            break;
-        case EGL_BAD_NATIVE_PIXMAP:
-            msg = "EGL_BAD_NATIVE_PIXMAP";
-            break;
-        case EGL_BAD_NATIVE_WINDOW:
-            msg = "EGL_BAD_NATIVE_WINDOW";
-            break;
-        case EGL_BAD_CURRENT_SURFACE:
-            msg = "EGL_BAD_CURRENT_SURFACE";
-            break;
-        case EGL_BAD_ALLOC:
-            msg = "EGL_BAD_ALLOC";
-            break;
-        case EGL_CONTEXT_LOST:
-            msg = "EGL_CONTEXT_LOST";
-            break;
-        default:
-            msg = "unknown";
-            break;
-        }
-        LOGE(TAG, "eglMakeCurrent failed: %#x, %s", errorCode, msg);
-
+        PE(eglMakeCurrent);
         return EGL_FALSE;
     }
 
