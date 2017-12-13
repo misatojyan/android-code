@@ -17,7 +17,7 @@
 
 #define TAG "eglUtils"
 
-// begin namespace eglUtil
+// begin namespace eglUtils
 namespace eglUtils {
 
 EGLDisplay display = EGL_NO_DISPLAY;
@@ -29,51 +29,28 @@ EGLint height = 0;
 EGLint format = 0;
 
 #define PE(function) printError(__FILE__, __LINE__, #function)
+#define CASE(error, msg) case error: msg = #error; break;
 
 static void printError(const char *file, const int line, const char *function)
 {
     EGLint errorCode = eglGetError();
     char *msg = "";
     switch (errorCode) {
-    case EGL_BAD_DISPLAY:
-        msg = "EGL_BAD_DISPLAY";
-        break;
-    case EGL_NOT_INITIALIZED:
-        msg = "EGL_NOT_INITIALIZED";
-        break;
-    case EGL_BAD_CONFIG:
-        msg = "EGL_BAD_CONFIG";
-        break;
-    case EGL_BAD_NATIVE_WINDOW:
-        msg = "EGL_BAD_NATIVE_WINDOW";
-        break;
-    case EGL_BAD_ATTRIBUTE:
-        msg = "EGL_BAD_ATTRIBUTE";
-        break;
-    case EGL_BAD_ALLOC:
-        msg = "EGL_BAD_ALLOC";
-        break;
-    case EGL_BAD_MATCH:
-        msg = "EGL_BAD_MATCH";
-        break;
-    case EGL_BAD_CONTEXT:
-        msg = "EGL_BAD_CONTEXT";
-        break;
-    case EGL_BAD_SURFACE:
-        msg = "EGL_BAD_SURFACE";
-        break;
-    case EGL_BAD_ACCESS:
-        msg = "EGL_BAD_ACCESS";
-        break;
-    case EGL_BAD_NATIVE_PIXMAP:
-        msg = "EGL_BAD_NATIVE_PIXMAP";
-        break;
-    case EGL_BAD_CURRENT_SURFACE:
-        msg = "EGL_BAD_CURRENT_SURFACE";
-        break;
-    case EGL_CONTEXT_LOST:
-        msg = "EGL_CONTEXT_LOST";
-        break;
+    CASE(EGL_SUCCESS, msg)
+    CASE(EGL_NOT_INITIALIZED, msg)
+    CASE(EGL_BAD_ACCESS, msg)
+    CASE(EGL_BAD_ALLOC, msg)
+    CASE(EGL_BAD_ATTRIBUTE, msg)
+    CASE(EGL_BAD_CONTEXT, msg)
+    CASE(EGL_BAD_CONFIG, msg)
+    CASE(EGL_BAD_CURRENT_SURFACE, msg)
+    CASE(EGL_BAD_DISPLAY, msg)
+    CASE(EGL_BAD_SURFACE, msg)
+    CASE(EGL_BAD_MATCH, msg)
+    CASE(EGL_BAD_PARAMETER, msg)
+    CASE(EGL_BAD_NATIVE_PIXMAP, msg)
+    CASE(EGL_BAD_NATIVE_WINDOW, msg)
+    CASE(EGL_CONTEXT_LOST, msg)
     default:
         msg = "unknown";
         break;
@@ -121,9 +98,17 @@ EGLBoolean initEGL(ANativeWindow *window)
      * find the best match if possible, otherwise use the very first one
      */
     status = eglChooseConfig(display, attribs, nullptr, 0, &numConfigs);
+    if (EGL_TRUE != status) {
+        PE(eglChooseConfig);
+        return EGL_FALSE;
+    }
     std::unique_ptr<EGLConfig[]> supportedConfigs(new EGLConfig[numConfigs]);
     assert(supportedConfigs);
-    eglChooseConfig(display, attribs, supportedConfigs.get(), numConfigs, &numConfigs);
+    status = eglChooseConfig(display, attribs, supportedConfigs.get(), numConfigs, &numConfigs);
+    if (EGL_TRUE != status) {
+        PE(eglChooseConfig);
+        return EGL_FALSE;
+    }
     assert(numConfigs);
     auto i = 0;
     for (; i < numConfigs; i++) {
@@ -186,5 +171,5 @@ EGLBoolean initEGL(ANativeWindow *window)
     return EGL_TRUE;
 }
 
-// end namespace eglUtil
+// end namespace eglUtils
 }
